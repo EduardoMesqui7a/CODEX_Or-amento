@@ -1,0 +1,5 @@
+MODELO_EMBEDDING = "sentence-transformers/all-MiniLM-L6-v2"
+PESO_SEMANTICO = 0.70
+PESO_FUZZY = 0.20
+PESO_REGRAS = 0.10
+

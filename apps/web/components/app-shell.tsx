@@ -2,7 +2,9 @@ import Link from "next/link";
 import { FileText, Gauge, Layers3, Sparkles } from "lucide-react";
 import { ReactNode } from "react";
 
-const nav = [
+type AppHref = "/dashboard" | "/processing/new" | "/history" | "/plans";
+
+const nav: Array<{ href: AppHref; label: string; icon: typeof Gauge }> = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/processing/new", label: "Novo Processamento", icon: Sparkles },
   { href: "/history", label: "Histórico", icon: FileText },
@@ -39,4 +41,3 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

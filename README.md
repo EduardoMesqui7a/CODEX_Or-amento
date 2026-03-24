@@ -42,6 +42,30 @@ Para execução via Docker:
 2. Ajuste:
 - `NEXT_PUBLIC_API_BASE_URL` (ex.: `http://localhost:8000/api/v1`)
 
+## Deploy rápido na internet (Opção 1)
+
+### Backend no Render (sem worker separado)
+1. No Render, crie um novo serviço `Web Service` apontando para este repositório.
+2. Pode usar o `render.yaml` da raiz automaticamente.
+3. Configure as variáveis obrigatórias:
+- `DATABASE_URL` (PostgreSQL gerenciado no Render ou Neon/Supabase)
+- `CORS_ORIGINS` com a URL do frontend (ex.: `https://seu-app.vercel.app`)
+4. Mantenha `CELERY_TASK_ALWAYS_EAGER=true` para executar o job no processo da API.
+5. Após deploy, valide:
+- `https://SUA_API.onrender.com/api/v1/health`
+
+### Frontend no Vercel
+1. Importe o mesmo repositório no Vercel.
+2. Defina `Root Directory` como `apps/web`.
+3. Configure variável:
+- `NEXT_PUBLIC_API_BASE_URL=https://SUA_API.onrender.com/api/v1`
+4. Deploy e valide:
+- `https://SEU_APP.vercel.app/processing/new`
+
+### Observação da Opção 1
+- Essa opção é ótima para lançar rápido.
+- O processamento roda inline na API (sem fila separada), então para alto volume o ideal futuro é ativar worker + Redis.
+
 ## 4) Rodar localmente sem Docker
 
 ### 4.1 Backend API
@@ -134,4 +158,3 @@ streamlit run app.py
 ```
 
 O `app.py` agora consome o `core`, preservando a lógica funcional principal.
-

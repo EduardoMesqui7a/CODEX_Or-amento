@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..auth import get_current_user
 from ..db import get_db
 from ..schemas import JobCreatePayload, JobListResponse, JobResponse
@@ -9,13 +10,17 @@ from ..services.job_service import JobService
 from ..workers.tasks import run_processing_job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+settings = get_settings()
 
 
 @router.post("", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
 def create_job(payload: JobCreatePayload, user=Depends(get_current_user), db: Session = Depends(get_db)):
     service = JobService(db)
     job = service.create_job(user_id=user["user_id"], payload=payload.model_dump())
-    run_processing_job.delay(job.id)
+    if settings.celery_task_always_eager:
+        run_processing_job(job.id)
+    else:
+        run_processing_job.delay(job.id)
     return JobResponse(
         id=job.id,
         status=job.status,

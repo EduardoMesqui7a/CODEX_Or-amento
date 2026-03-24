@@ -1,6 +1,15 @@
 from pathlib import Path
 import sys
 
-repo_root = Path(__file__).resolve().parents[3]
-if str(repo_root) not in sys.path:
-    sys.path.append(str(repo_root))
+
+def _ensure_repo_root_on_path():
+    current = Path(__file__).resolve()
+    for parent in [current.parent, *current.parents]:
+        if (parent / "core").exists():
+            path_str = str(parent)
+            if path_str not in sys.path:
+                sys.path.append(path_str)
+            break
+
+
+_ensure_repo_root_on_path()

@@ -8,7 +8,7 @@ import {
   createJob,
   downloadJobResult,
   getJob,
-  inspectFile,
+  getFileSheets,
   inspectSheet,
   type JobResponse,
   type SheetInspectResponse,
@@ -93,15 +93,17 @@ export default function NewProcessingPage() {
       setBaseFileId(baseRes.file_id);
       setDestinoFileId(destinoRes.file_id);
 
-      const [baseInfo, destinoInfo] = await Promise.all([
-        inspectFile(baseRes.file_id, baseHeaderRow),
-        inspectFile(destinoRes.file_id, destinoHeaderRow)
+      const [baseSheetsInfo, destinoSheetsInfo] = await Promise.all([
+        getFileSheets(baseRes.file_id),
+        getFileSheets(destinoRes.file_id)
       ]);
-      setBaseSheets(baseInfo.sheets);
-      setDestinoSheets(destinoInfo.sheets);
-      setBaseSheet(baseInfo.sheets[0] || "");
-      setDestinoSheet(destinoInfo.sheets[0] || "");
-      setMessage("Arquivos enviados. Agora selecione abas e carregue as colunas.");
+      setBaseSheets(baseSheetsInfo.sheets);
+      setDestinoSheets(destinoSheetsInfo.sheets);
+      setBaseSheet(baseSheetsInfo.sheets[0] || "");
+      setDestinoSheet(destinoSheetsInfo.sheets[0] || "");
+      setBaseInspect(null);
+      setDestinoInspect(null);
+      setMessage("Arquivos enviados. Agora selecione abas e clique em Carregar colunas.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha no upload.");
     } finally {

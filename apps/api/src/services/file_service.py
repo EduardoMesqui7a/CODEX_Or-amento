@@ -21,19 +21,28 @@ class FileService:
         if ext not in {".xlsx", ".xlsm", ".xls"}:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de arquivo não suportado.")
 
-        data = upload.file.read()
         max_bytes = self.settings.max_upload_size_mb * 1024 * 1024
-        if len(data) > max_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"Arquivo excede {self.settings.max_upload_size_mb}MB.",
-            )
-
         file_id = str(uuid4())
         user_dir = self.storage_dir / user_id
         user_dir.mkdir(parents=True, exist_ok=True)
         file_path = user_dir / f"{file_id}{ext}"
-        file_path.write_bytes(data)
+
+        size_bytes = 0
+        upload.file.seek(0)
+        with file_path.open("wb") as destination:
+            while True:
+                chunk = upload.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size_bytes += len(chunk)
+                if size_bytes > max_bytes:
+                    destination.close()
+                    file_path.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"Arquivo excede {self.settings.max_upload_size_mb}MB.",
+                    )
+                destination.write(chunk)
 
         db_file = StoredFile(
             id=file_id,
@@ -42,7 +51,7 @@ class FileService:
             original_name=upload.filename or f"arquivo{ext}",
             storage_path=str(file_path),
             content_type=upload.content_type or "application/octet-stream",
-            size_bytes=len(data),
+            size_bytes=size_bytes,
         )
         self.db.add(db_file)
         self.db.commit()
@@ -81,4 +90,3 @@ class FileService:
         self.db.commit()
         self.db.refresh(db_file)
         return db_file
-

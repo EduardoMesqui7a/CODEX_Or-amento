@@ -32,6 +32,11 @@ export type SheetInspectResponse = {
   preview_rows: Record<string, string | number | null>[];
 };
 
+export type FileSheetsResponse = {
+  file_id: string;
+  sheets: string[];
+};
+
 export type JobResponse = {
   id: string;
   status: "queued" | "running" | "succeeded" | "failed";
@@ -89,6 +94,10 @@ export async function uploadFile(kind: "base" | "destino", file: File): Promise<
 
 export async function inspectFile(fileId: string, headerRow: number): Promise<FileInspectResponse> {
   return apiFetch<FileInspectResponse>(`/files/${fileId}/inspect?header_row=${headerRow}`);
+}
+
+export async function getFileSheets(fileId: string): Promise<FileSheetsResponse> {
+  return apiFetch<FileSheetsResponse>(`/files/${fileId}/sheets`);
 }
 
 export async function inspectSheet(

@@ -36,6 +36,13 @@ def inspect_file(file_id: str, header_row: int = 1, user=Depends(get_current_use
     return service.inspect(file_id=file_id, user_id=user["user_id"], header_row=header_row)
 
 
+@router.get("/{file_id}/sheets")
+def list_sheets(file_id: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    file_service = FileService(db)
+    service = WorkbookInspectService(file_service)
+    return service.list_sheet_names(file_id=file_id, user_id=user["user_id"])
+
+
 @router.get("/{file_id}/sheet", response_model=SheetInspectResponse)
 def inspect_sheet(
     file_id: str,

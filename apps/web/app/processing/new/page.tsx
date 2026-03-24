@@ -3,24 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, UploadCloud } from "lucide-react";
 
+import { type SheetInspectResponse } from "@/lib/api";
 import { AppShell } from "@/components/app-shell";
-import {
-  createJob,
-  downloadJobResult,
-  getJob,
-  getFileSheets,
-  inspectSheet,
-  type JobResponse,
-  type SheetInspectResponse,
-  uploadFile
-} from "@/lib/api";
+import { inspectLocalSheet, getWorkbookSheets } from "@/lib/excel-browser";
+import { createJob, downloadJobResult, getJob, type JobResponse, uploadFile } from "@/lib/api";
 
 type MappingRow = {
   base_column: string;
   destino_column: string;
 };
 
-const steps = ["Arquivos", "Abas e Cabeçalhos", "Mapeamento", "Processamento"];
+const steps = ["Arquivos locais", "Abas e Cabecalhos", "Mapeamento", "Processamento"];
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -31,11 +24,17 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function getFileKey(file: File | null) {
+  return file ? `${file.name}-${file.size}-${file.lastModified}` : "";
+}
+
 export default function NewProcessingPage() {
   const [baseFile, setBaseFile] = useState<File | null>(null);
   const [destinoFile, setDestinoFile] = useState<File | null>(null);
   const [baseFileId, setBaseFileId] = useState("");
   const [destinoFileId, setDestinoFileId] = useState("");
+  const [baseUploadKey, setBaseUploadKey] = useState("");
+  const [destinoUploadKey, setDestinoUploadKey] = useState("");
   const [baseSheets, setBaseSheets] = useState<string[]>([]);
   const [destinoSheets, setDestinoSheets] = useState<string[]>([]);
   const [baseSheet, setBaseSheet] = useState("");
@@ -61,7 +60,7 @@ export default function NewProcessingPage() {
         const updated = await getJob(job.id);
         setJob(updated);
       } catch {
-        // ignore transient polling errors
+        // Ignore transient polling errors.
       }
     }, 2000);
     return () => clearInterval(interval);
@@ -77,53 +76,80 @@ export default function NewProcessingPage() {
   const basePreviewColumns = useMemo(() => baseInspect?.columns.slice(0, 4) ?? [], [baseInspect]);
   const destinoPreviewColumns = useMemo(() => destinoInspect?.columns.slice(0, 4) ?? [], [destinoInspect]);
 
-  async function handleUpload() {
-    if (!baseFile || !destinoFile) {
-      setError("Selecione os dois arquivos antes de enviar.");
+  function resetWorkflow() {
+    setBaseFileId("");
+    setDestinoFileId("");
+    setBaseUploadKey("");
+    setDestinoUploadKey("");
+    setBaseSheets([]);
+    setDestinoSheets([]);
+    setBaseSheet("");
+    setDestinoSheet("");
+    setBaseInspect(null);
+    setDestinoInspect(null);
+    setColunaTextoBase("");
+    setColunaBuscaDestino("");
+    setMappings([{ base_column: "", destino_column: "" }]);
+    setJob(null);
+    setMessage("");
+    setError("");
+  }
+
+  function updateSelectedFile(kind: "base" | "destino", file: File | null) {
+    resetWorkflow();
+    if (kind === "base") {
+      setBaseFile(file);
+      setDestinoFile((current) => current);
       return;
     }
+    setDestinoFile(file);
+    setBaseFile((current) => current);
+  }
+
+  async function handlePrepareFiles() {
+    if (!baseFile || !destinoFile) {
+      setError("Selecione os dois arquivos antes de continuar.");
+      return;
+    }
+
     setLoading(true);
     setError("");
-    setMessage("Enviando arquivos...");
-    try {
-      const [baseRes, destinoRes] = await Promise.all([
-        uploadFile("base", baseFile),
-        uploadFile("destino", destinoFile)
-      ]);
-      setBaseFileId(baseRes.file_id);
-      setDestinoFileId(destinoRes.file_id);
+    setMessage("Lendo arquivos localmente no navegador...");
 
-      const [baseSheetsInfo, destinoSheetsInfo] = await Promise.all([
-        getFileSheets(baseRes.file_id),
-        getFileSheets(destinoRes.file_id)
+    try {
+      const [baseSheetNames, destinoSheetNames] = await Promise.all([
+        getWorkbookSheets(baseFile),
+        getWorkbookSheets(destinoFile),
       ]);
-      setBaseSheets(baseSheetsInfo.sheets);
-      setDestinoSheets(destinoSheetsInfo.sheets);
-      setBaseSheet(baseSheetsInfo.sheets[0] || "");
-      setDestinoSheet(destinoSheetsInfo.sheets[0] || "");
-      setBaseInspect(null);
-      setDestinoInspect(null);
-      setMessage("Arquivos enviados. Agora selecione abas e clique em Carregar colunas.");
+
+      setBaseSheets(baseSheetNames);
+      setDestinoSheets(destinoSheetNames);
+      setBaseSheet(baseSheetNames[0] || "");
+      setDestinoSheet(destinoSheetNames[0] || "");
+      setMessage("Arquivos lidos localmente. Agora selecione as abas e carregue as colunas.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha no upload.");
+      setError(err instanceof Error ? err.message : "Falha ao ler os arquivos localmente.");
     } finally {
       setLoading(false);
     }
   }
 
   async function handleLoadColumns() {
-    if (!baseFileId || !destinoFileId || !baseSheet || !destinoSheet) {
-      setError("Faça upload e selecione as abas para carregar colunas.");
+    if (!baseFile || !destinoFile || !baseSheet || !destinoSheet) {
+      setError("Selecione os arquivos e as abas para carregar colunas.");
       return;
     }
+
     setLoading(true);
     setError("");
-    setMessage("Carregando estrutura das abas...");
+    setMessage("Montando previas e colunas localmente...");
+
     try {
       const [baseData, destinoData] = await Promise.all([
-        inspectSheet(baseFileId, baseSheet, baseHeaderRow),
-        inspectSheet(destinoFileId, destinoSheet, destinoHeaderRow)
+        inspectLocalSheet(baseFile, baseSheet, baseHeaderRow),
+        inspectLocalSheet(destinoFile, destinoSheet, destinoHeaderRow),
       ]);
+
       setBaseInspect(baseData);
       setDestinoInspect(destinoData);
       setColunaTextoBase(baseData.columns[0] || "");
@@ -131,10 +157,10 @@ export default function NewProcessingPage() {
       setMappings([
         {
           base_column: baseData.columns[0] || "",
-          destino_column: destinoData.columns[0] || ""
-        }
+          destino_column: destinoData.columns[0] || "",
+        },
       ]);
-      setMessage("Colunas carregadas. Ajuste o mapeamento e inicie o job.");
+      setMessage("Colunas carregadas localmente. Revise o mapeamento e clique em Criar job.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar colunas.");
     } finally {
@@ -154,24 +180,57 @@ export default function NewProcessingPage() {
     setMappings((prev) => prev.filter((_, i) => i !== index));
   }
 
+  async function ensureRemoteUploads() {
+    if (!baseFile || !destinoFile) {
+      throw new Error("Arquivos locais nao encontrados.");
+    }
+
+    const currentBaseKey = getFileKey(baseFile);
+    const currentDestinoKey = getFileKey(destinoFile);
+
+    let resolvedBaseFileId = baseFileId;
+    let resolvedDestinoFileId = destinoFileId;
+
+    if (!resolvedBaseFileId || baseUploadKey !== currentBaseKey) {
+      const baseRes = await uploadFile("base", baseFile);
+      resolvedBaseFileId = baseRes.file_id;
+      setBaseFileId(baseRes.file_id);
+      setBaseUploadKey(currentBaseKey);
+    }
+
+    if (!resolvedDestinoFileId || destinoUploadKey !== currentDestinoKey) {
+      const destinoRes = await uploadFile("destino", destinoFile);
+      resolvedDestinoFileId = destinoRes.file_id;
+      setDestinoFileId(destinoRes.file_id);
+      setDestinoUploadKey(currentDestinoKey);
+    }
+
+    return { resolvedBaseFileId, resolvedDestinoFileId };
+  }
+
   async function handleCreateJob() {
-    if (!baseFileId || !destinoFileId || !baseInspect || !destinoInspect) {
-      setError("Complete upload e inspeção antes de criar o job.");
+    if (!baseFile || !destinoFile || !baseInspect || !destinoInspect) {
+      setError("Complete a leitura local e a inspecao antes de criar o job.");
       return;
     }
+
     if (!mappingValid) {
-      setError("Mapeamento inválido. Verifique colunas vazias ou repetidas.");
+      setError("Mapeamento invalido. Verifique colunas vazias ou repetidas.");
       return;
     }
 
     setLoading(true);
     setError("");
-    setMessage("Criando job e iniciando processamento...");
+    setMessage("Enviando arquivos ao servidor...");
 
     try {
+      const { resolvedBaseFileId, resolvedDestinoFileId } = await ensureRemoteUploads();
+
+      setMessage("Criando job e iniciando processamento...");
+
       const payload = {
-        base_file_id: baseFileId,
-        destino_file_id: destinoFileId,
+        base_file_id: resolvedBaseFileId,
+        destino_file_id: resolvedDestinoFileId,
         base_sheet: baseSheet,
         destino_sheet: destinoSheet,
         base_header_row: baseHeaderRow,
@@ -180,13 +239,14 @@ export default function NewProcessingPage() {
         coluna_texto_base: colunaTextoBase,
         mappings: mappings.filter((item) => item.base_column && item.destino_column),
         score_minimo: scoreMinimo,
-        top_k_candidatos: topK
+        top_k_candidatos: topK,
       };
+
       const created = await createJob(payload);
       setJob(created);
-      setMessage("Job criado. Acompanhe o progresso em tempo real.");
+      setMessage("Job criado. Agora o progresso segue em tempo real.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível criar o job.");
+      setError(err instanceof Error ? err.message : "Nao foi possivel criar o job.");
     } finally {
       setLoading(false);
     }
@@ -194,6 +254,7 @@ export default function NewProcessingPage() {
 
   async function handleDownloadResult() {
     if (!job) return;
+
     setLoading(true);
     setError("");
     try {
@@ -211,7 +272,9 @@ export default function NewProcessingPage() {
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">Novo Processamento</h2>
-          <p className="mt-1 text-sm text-slate-600">Fluxo real integrado com API e processamento assíncrono.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            O navegador le o Excel localmente para abas, colunas e previas. O upload so acontece quando voce confirma o processamento.
+          </p>
         </div>
 
         <section className="grid gap-3 md:grid-cols-4">
@@ -225,14 +288,18 @@ export default function NewProcessingPage() {
 
         <section className="grid gap-4 xl:grid-cols-2">
           <article className="rounded-2xl bg-white p-5">
-            <h3 className="font-semibold">1) Upload</h3>
-            <p className="mt-1 text-sm text-slate-600">Envie base e planilha destino.</p>
+            <h3 className="font-semibold">1) Leitura local</h3>
+            <p className="mt-1 text-sm text-slate-600">Escolha os arquivos. Nada sobe para o servidor nesta etapa.</p>
             <div className="mt-4 grid gap-3">
               <label className="rounded-xl border border-dashed border-slate-300 p-4">
                 <span className="mb-2 flex items-center gap-2 text-sm text-slate-500">
                   <UploadCloud size={16} /> Arquivo base
                 </span>
-                <input type="file" accept=".xlsx,.xlsm,.xls" onChange={(e) => setBaseFile(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept=".xlsx,.xlsm,.xls"
+                  onChange={(e) => updateSelectedFile("base", e.target.files?.[0] || null)}
+                />
               </label>
               <label className="rounded-xl border border-dashed border-slate-300 p-4">
                 <span className="mb-2 flex items-center gap-2 text-sm text-slate-500">
@@ -241,21 +308,21 @@ export default function NewProcessingPage() {
                 <input
                   type="file"
                   accept=".xlsx,.xlsm,.xls"
-                  onChange={(e) => setDestinoFile(e.target.files?.[0] || null)}
+                  onChange={(e) => updateSelectedFile("destino", e.target.files?.[0] || null)}
                 />
               </label>
               <button
-                onClick={handleUpload}
+                onClick={handlePrepareFiles}
                 disabled={loading}
                 className="rounded-xl bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {loading ? "Enviando..." : "Enviar arquivos"}
+                {loading ? "Lendo..." : "Ler arquivos localmente"}
               </button>
             </div>
           </article>
 
           <article className="rounded-2xl bg-white p-5">
-            <h3 className="font-semibold">2) Abas e cabeçalhos</h3>
+            <h3 className="font-semibold">2) Abas e cabecalhos</h3>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs uppercase tracking-[0.15em] text-slate-500">Aba base</label>
@@ -308,7 +375,7 @@ export default function NewProcessingPage() {
             </div>
             <button
               onClick={handleLoadColumns}
-              disabled={loading || !baseFileId || !destinoFileId}
+              disabled={loading || !baseFile || !destinoFile || !baseSheet || !destinoSheet}
               className="mt-4 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
               Carregar colunas
@@ -317,7 +384,7 @@ export default function NewProcessingPage() {
         </section>
 
         <section className="rounded-2xl bg-white p-5">
-          <h3 className="font-semibold">3) Mapeamento e parâmetros</h3>
+          <h3 className="font-semibold">3) Mapeamento e parametros</h3>
           <div className="mt-4 grid gap-3 lg:grid-cols-4">
             <div>
               <label className="mb-1 block text-xs uppercase tracking-[0.15em] text-slate-500">Coluna texto base</label>
@@ -348,7 +415,7 @@ export default function NewProcessingPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs uppercase tracking-[0.15em] text-slate-500">Score mínimo</label>
+              <label className="mb-1 block text-xs uppercase tracking-[0.15em] text-slate-500">Score minimo</label>
               <input
                 type="number"
                 step={0.01}
@@ -426,8 +493,8 @@ export default function NewProcessingPage() {
         {(baseInspect || destinoInspect) && (
           <section className="grid gap-4 xl:grid-cols-2">
             <article className="rounded-2xl bg-white p-5">
-              <h4 className="font-semibold">Prévia da base</h4>
-              {!baseInspect && <p className="mt-2 text-sm text-slate-500">Sem prévia carregada.</p>}
+              <h4 className="font-semibold">Previa da base</h4>
+              {!baseInspect && <p className="mt-2 text-sm text-slate-500">Sem previa carregada.</p>}
               {baseInspect && (
                 <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
                   <table className="min-w-full text-left text-xs">
@@ -455,9 +522,10 @@ export default function NewProcessingPage() {
                 </div>
               )}
             </article>
+
             <article className="rounded-2xl bg-white p-5">
-              <h4 className="font-semibold">Prévia da destino</h4>
-              {!destinoInspect && <p className="mt-2 text-sm text-slate-500">Sem prévia carregada.</p>}
+              <h4 className="font-semibold">Previa da destino</h4>
+              {!destinoInspect && <p className="mt-2 text-sm text-slate-500">Sem previa carregada.</p>}
               {destinoInspect && (
                 <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
                   <table className="min-w-full text-left text-xs">
@@ -490,7 +558,7 @@ export default function NewProcessingPage() {
 
         <section className="rounded-2xl bg-white p-5">
           <h3 className="font-semibold">4) Status do job</h3>
-          {!job && <p className="mt-2 text-sm text-slate-500">Ainda não há job criado.</p>}
+          {!job && <p className="mt-2 text-sm text-slate-500">Ainda nao ha job criado.</p>}
           {job && (
             <div className="mt-3 space-y-3">
               <p className="text-sm">
@@ -502,11 +570,10 @@ export default function NewProcessingPage() {
               <div className="h-3 w-full rounded-full bg-slate-100">
                 <div className="h-3 rounded-full bg-ink transition-all" style={{ width: `${job.progress}%` }} />
               </div>
-              <p className="text-xs text-slate-500">{job.progress}% concluído</p>
+              <p className="text-xs text-slate-500">{job.progress}% concluido</p>
               {job.summary && (
                 <p className="text-sm text-slate-600">
-                  Total: {job.summary.rows_total} | Itens: {job.summary.rows_item} | Baixa confiança:{" "}
-                  {job.summary.rows_low_confidence}
+                  Total: {job.summary.rows_total} | Itens: {job.summary.rows_item} | Baixa confianca: {job.summary.rows_low_confidence}
                 </p>
               )}
               {job.status === "succeeded" && (

@@ -1,0 +1,3 @@
+@echo off
+echo Subindo Orcamento IA em modo local rapido...
+docker compose up --build

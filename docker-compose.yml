@@ -1,20 +1,4 @@
 services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: orcamento_ia
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
   api:
     build:
       context: .
@@ -22,35 +6,15 @@ services:
     env_file:
       - apps/api/.env.example
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/orcamento_ia
-      REDIS_URL: redis://redis:6379/0
-      CELERY_TASK_ALWAYS_EAGER: "false"
+      DATABASE_URL: sqlite:////app/data/local.db
+      CELERY_TASK_ALWAYS_EAGER: "true"
       STORAGE_DIR: /app/storage
-    depends_on:
-      - postgres
-      - redis
+      CORS_ORIGINS: http://localhost:3000
     ports:
       - "8000:8000"
     volumes:
       - api_storage:/app/storage
-
-  worker:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    command: celery -A worker worker --loglevel=info
-    working_dir: /app
-    environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/orcamento_ia
-      REDIS_URL: redis://redis:6379/0
-      CELERY_TASK_ALWAYS_EAGER: "false"
-      STORAGE_DIR: /app/storage
-    depends_on:
-      - postgres
-      - redis
-      - api
-    volumes:
-      - api_storage:/app/storage
+      - api_data:/app/data
 
   web:
     build:
@@ -58,11 +22,13 @@ services:
       dockerfile: apps/web/Dockerfile
     env_file:
       - apps/web/.env.example
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
     depends_on:
       - api
     ports:
       - "3000:3000"
 
 volumes:
-  postgres_data:
   api_storage:
+  api_data:

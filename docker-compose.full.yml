@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: orcamento_ia
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/orcamento_ia
+      REDIS_URL: redis://redis:6379/0
+      CELERY_TASK_ALWAYS_EAGER: "false"
+      STORAGE_DIR: /app/storage
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: celery -A worker worker --loglevel=info
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/orcamento_ia
+      REDIS_URL: redis://redis:6379/0
+      CELERY_TASK_ALWAYS_EAGER: "false"
+      STORAGE_DIR: /app/storage
+    depends_on:
+      - postgres
+      - redis
+      - api
+    volumes:
+      - api_storage:/app/storage
+
+volumes:
+  postgres_data:

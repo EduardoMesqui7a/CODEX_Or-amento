@@ -9,6 +9,8 @@ services:
     envVars:
       - key: APP_ENV
         value: production
+      - key: PYTHON_VERSION
+        value: 3.12.6
       - key: APP_DEBUG
         value: "false"
       - key: API_PREFIX

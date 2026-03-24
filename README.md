@@ -48,10 +48,12 @@ Para execução via Docker:
 1. No Render, crie um novo serviço `Web Service` apontando para este repositório.
 2. Pode usar o `render.yaml` da raiz automaticamente.
 3. Configure as variáveis obrigatórias:
+- `PYTHON_VERSION=3.12.6`
 - `DATABASE_URL` (PostgreSQL gerenciado no Render ou Neon/Supabase)
 - `CORS_ORIGINS` com a URL do frontend (ex.: `https://seu-app.vercel.app`)
 4. Mantenha `CELERY_TASK_ALWAYS_EAGER=true` para executar o job no processo da API.
 5. Após deploy, valide:
+- `https://SUA_API.onrender.com/health`
 - `https://SUA_API.onrender.com/api/v1/health`
 
 ### Frontend no Vercel

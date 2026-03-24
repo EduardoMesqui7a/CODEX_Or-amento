@@ -23,3 +23,13 @@ app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(jobs.router, prefix=settings.api_prefix)
 app.include_router(billing.router, prefix=settings.api_prefix)
+
+
+@app.get("/")
+def root():
+    return {"service": settings.app_name, "status": "ok", "health_path": f"{settings.api_prefix}/health"}
+
+
+@app.get("/health")
+def health_root():
+    return {"status": "ok"}

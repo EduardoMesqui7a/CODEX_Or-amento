@@ -67,6 +67,7 @@ Para execução via Docker:
 ### Observação da Opção 1
 - Essa opção é ótima para lançar rápido.
 - O processamento roda inline na API (sem fila separada), então para alto volume o ideal futuro é ativar worker + Redis.
+- Para teste rápido sem Postgres no Render, use `DATABASE_URL=sqlite:///./local.db` (o app converte para `/tmp/local.db` automaticamente).
 
 ## 4) Rodar localmente sem Docker
 

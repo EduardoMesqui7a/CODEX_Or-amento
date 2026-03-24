@@ -3,7 +3,6 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from rapidfuzz import fuzz
-from sentence_transformers import SentenceTransformer
 from sklearn.neighbors import NearestNeighbors
 
 from .constants import MODELO_EMBEDDING, PESO_FUZZY, PESO_REGRAS, PESO_SEMANTICO
@@ -12,6 +11,9 @@ from .text import normalizar_texto
 
 @lru_cache(maxsize=1)
 def carregar_modelo():
+    # Lazy import to keep API startup fast in constrained deploy targets (e.g., Render free tier).
+    from sentence_transformers import SentenceTransformer
+
     return SentenceTransformer(MODELO_EMBEDDING)
 
 
@@ -135,4 +137,3 @@ def buscar_melhor_item_em_lote(
         resultados[busca_norm] = None if melhor_idx is None else (melhor_idx, melhor_det)
 
     return resultados
-

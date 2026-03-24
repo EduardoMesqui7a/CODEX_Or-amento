@@ -7,7 +7,6 @@ from ..auth import get_current_user
 from ..db import get_db
 from ..schemas import JobCreatePayload, JobListResponse, JobResponse
 from ..services.job_service import JobService
-from ..workers.tasks import run_processing_job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 settings = get_settings()
@@ -17,6 +16,8 @@ settings = get_settings()
 def create_job(payload: JobCreatePayload, user=Depends(get_current_user), db: Session = Depends(get_db)):
     service = JobService(db)
     job = service.create_job(user_id=user["user_id"], payload=payload.model_dump())
+    from ..workers.tasks import run_processing_job
+
     if settings.celery_task_always_eager:
         run_processing_job(job.id)
     else:

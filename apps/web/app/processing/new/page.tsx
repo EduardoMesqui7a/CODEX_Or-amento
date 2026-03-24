@@ -74,6 +74,9 @@ export default function NewProcessingPage() {
     return destinoSet.size === filtered.length;
   }, [mappings]);
 
+  const basePreviewColumns = useMemo(() => baseInspect?.columns.slice(0, 4) ?? [], [baseInspect]);
+  const destinoPreviewColumns = useMemo(() => destinoInspect?.columns.slice(0, 4) ?? [], [destinoInspect]);
+
   async function handleUpload() {
     if (!baseFile || !destinoFile) {
       setError("Selecione os dois arquivos antes de enviar.");
@@ -428,7 +431,7 @@ export default function NewProcessingPage() {
                   <table className="min-w-full text-left text-xs">
                     <thead className="bg-slate-50">
                       <tr>
-                        {baseInspect.columns.slice(0, 6).map((col) => (
+                        {basePreviewColumns.map((col) => (
                           <th key={col} className="px-2 py-2 font-medium text-slate-600">
                             {col}
                           </th>
@@ -436,10 +439,10 @@ export default function NewProcessingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {baseInspect.preview_rows.slice(0, 5).map((row, idx) => (
+                      {baseInspect.preview_rows.slice(0, 3).map((row, idx) => (
                         <tr key={idx} className="border-t border-slate-100">
-                          {baseInspect.columns.slice(0, 6).map((col) => (
-                            <td key={`${idx}-${col}`} className="px-2 py-2 text-slate-600">
+                          {basePreviewColumns.map((col) => (
+                            <td key={`${idx}-${col}`} className="max-w-[180px] px-2 py-2 text-slate-600">
                               {String(row[col] ?? "")}
                             </td>
                           ))}
@@ -458,7 +461,7 @@ export default function NewProcessingPage() {
                   <table className="min-w-full text-left text-xs">
                     <thead className="bg-slate-50">
                       <tr>
-                        {destinoInspect.columns.slice(0, 6).map((col) => (
+                        {destinoPreviewColumns.map((col) => (
                           <th key={col} className="px-2 py-2 font-medium text-slate-600">
                             {col}
                           </th>
@@ -466,10 +469,10 @@ export default function NewProcessingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {destinoInspect.preview_rows.slice(0, 5).map((row, idx) => (
+                      {destinoInspect.preview_rows.slice(0, 3).map((row, idx) => (
                         <tr key={idx} className="border-t border-slate-100">
-                          {destinoInspect.columns.slice(0, 6).map((col) => (
-                            <td key={`${idx}-${col}`} className="px-2 py-2 text-slate-600">
+                          {destinoPreviewColumns.map((col) => (
+                            <td key={`${idx}-${col}`} className="max-w-[180px] px-2 py-2 text-slate-600">
                               {String(row[col] ?? "")}
                             </td>
                           ))}

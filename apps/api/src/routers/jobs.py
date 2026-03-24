@@ -1,3 +1,5 @@
+import threading
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -19,7 +21,7 @@ def create_job(payload: JobCreatePayload, user=Depends(get_current_user), db: Se
     from ..workers.tasks import run_processing_job
 
     if settings.celery_task_always_eager:
-        run_processing_job(job.id)
+        threading.Thread(target=run_processing_job, args=(job.id,), daemon=True).start()
     else:
         run_processing_job.delay(job.id)
     return JobResponse(
